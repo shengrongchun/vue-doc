@@ -9,7 +9,7 @@
 - 通过 `render` 函数的方式
 
 如果是通过 `template` 的方式，最终还是要转为 `render` 函数。
-小提示: `vue` 的版本有几种，如不带编译的版本（无 `template` 转 `render` 函数功能）。我们平时大多使用这种版本。不是因为我们不写 `template`, 而是我们的 `template` 都会写在`.vue` 的文件中。而 `.vue` 的文件是通过 `vue-loader` 加载器加载的。`vue-loader` 本身会有模板编译 `render` 函数的功能。
+小提示: `vue` 的版本有几种，如不带编译的版本（无 `template` 转 `render` 函数功能）。我们平时大多使用这种版本。不是因为我们不写 `template`, 而是我们的 `template` 都会写在`.vue` 的文件中。而 `.vue` 的文件是通过 `vue-loader` 加载器加载的。`vue-loader` 会提取 `template` 给 `vue-template-compiler` 编译成 `render` 函数。
 
 ```html
 <div id="app"></app>
@@ -17,7 +17,7 @@
 ```js
 import Vue from 'vue'
 new Vue({
-  el: '#app', //寻找创建出来的DOM模板插入哪里
+  el: '#app', //寻找创建出来的DOM替换的地方
   template:'<span @click="changeName">{{ name }}</span>' //渲染的模板
   data() {
     return {
@@ -131,32 +131,30 @@ let updateComponent = () => {
 ![vue-dom1](./img/vue-dom1.png)
 
 ## watch 监听的实现
-看如下代码
+如下代码
 ````js
 {
   data() {
     return {
-      name: '哈啰出行'
+      hello: {
+        name: '哈啰前端'
+      }
     }
   },
   watch: {
-    name: function handler(newVal, oldVal)=> {
+    'hello.name': function handler(newVal, oldVal)=> {
       console.log(newVal)
     }
   }
 }
 ````
-`watch` 功能是监听当 `name` 的值发生变化的时候执行 `watch.name` 对应的 `handler` 方法，方法的参数是新旧值。分析功能有以下几点
-- 触发 `name` 的 `set ` 方法时要执行 `handler` 函数
-- 要保存新旧值给 `handler` 函数当参数。
+`watch` 功能是监听当 `hello.name` 的值发生变化的时候执行对应的 `handler` 方法，方法的参数是新旧值。分析功能有以下几点
+- `hello.name` 的值变化要执行 `handler` 函数
+- 要保存新旧值在 `handler` 函数执行时当参数传入
 
-以下代码是对 `watch` 的 `key` 如 `name` 获取其值的包装函数
+以下代码是对 `watch` 的 `key` 如 `hello.name` 获取其值的包装函数
 ````js
-const bailRE = new RegExp(`[^${unicodeRegExp.source}.$_\\d]`)
-function parsePath (path) {//例如 name、a.b、a.b.c……
-  if (bailRE.test(path)) {
-    return
-  }
+function parsePath (path) {
   const segments = path.split('.')
   return function (obj) {
     for (let i = 0; i < segments.length; i++) {
@@ -166,261 +164,186 @@ function parsePath (path) {//例如 name、a.b、a.b.c……
     return obj
   }
 }
-var getter = parsePath(watchKey)
-var oldVal = getter.call(vm, vm) //旧值的获取
+var getter = parsePath(watchKey) //例如 hello.name、a.b、a.b.c……
+var oldVal = getter.call(vm, vm) //值的获取
 ````
-`parsePath` 函数的功能是返回一个函数，此函数的是获取监听表达式的值，`obj` 是 `vm`，在`vm` 上获取值。再次包装一下获取值的函数，起名叫 `getWVal`
+`parsePath` 函数的功能是返回一个函数如 `getter`，此函数是获取监听表达式的值，而 `obj` 是执行 `getter` 函数所传的参数如 `vm` 。如果传递的参数是 `vm` 那就是在 `vm` 上获取值, 如：
+```js
+  watchKey: hello.name
+  vm = vm.hello  // 触发 hello 的 get 方法
+  vm = vm.name   // 触发 name 的 get 方法
+  return vm      // *注 vm是引用但这里是=赋值，所以并不会担心改变传递来的 vm 的值
+```
+
+再次包装一下获取值的函数，如 `get`
 ````js
-let getWVal = (vm, watchKey, handler)=> {
+let get = (vm, watchKey)=> {
   let getter = parsePath(watchKey)
-  let oldVal = getter.call(vm, vm) //旧值的获取
+  let value = getter.call(vm, vm) //值的获取
+  return value
 }
 ````
-当获取 `name` 值触发 `get` 方法时，需要在 `get` 方法中记住 `handler` 函数和旧值 `oldVal`。我们需要在数据劫持部分为每个 `key` 增加属于自己的两个变量：`watchHandler` 和`wOldVal`，以便在触发 `set` 方法中使用。我们要把 `handler` 函数赋值给一个全局变量 `Handler`，`watch` 的流程图如下
-![vue-dom3](./img/vue-dom3.png)
+仅仅只有获取表达式值得方法还不够，我们还需要执行 `handler` 函数的方法，如 `run`
+```js
+let run = (vm, watchKey, handler)=> {
+  const value = get(vm, watchKey)
+  handler.call(vm, value, oldValue)
+}
+```
+我们需要一开始初始化的时候执行 `get` 方法缓存起来 `oldValue`，因此我们需要对其进行改造。通过创建一个对象 `watcher` ，此  `watcher` 对于每个 `watchKey` 来说都是唯一的，而且结构都一样，可以通过 `Watcher` 类来创建：
+```js
+let uid = 0
+class Watcher {
+  constructor (vm, watchKey, handler) {
+    this.vm = vm
+    this.handler = handler
+    this.id = ++uid // watcher唯一标识
+    this.getter = parsePath(watchKey)
+    this.oldVal = this.get() //一开始就获取旧值缓存在watcher对象上
+  }
+  get() {
+    Watcher = this; //全局变量 Watcher
+    const vm = this.vm
+    let value = this.getter.call(vm, vm) //值的获取
+    Watcher = null
+    return value
+  }
+  run() {
+    const value = this.get() //新值
+    const oldValue = this.oldVal //旧值
+    this.oldVal = value //旧值替换，以便下次使用
+    this.handler.call(this.vm, value, oldValue)
+  }
+}
+```
+
+当获取 `hello.name` 值触发 `get` 方法时，需要在 `get` 方法中收集 `hello.name` 对应的 `watcher` 对象，以便在触发 `set` 方法中直接 `wacther.run()` 执行。我们要把 `watcher` 对象赋值给一个全局变量 `Watcher` 。值获取结束要立即把 `Watcher` 全局变量设置 `null`，因为`data`里面定义的其他响应式变量触发 `set` 方法如果判断全局 `Watcher` 有值也会执行 `wacther.run()`
+
+`watch` 的流程图如下
+![vue-img](./img/vue-img.png)
 以下代码输出的结果是什么？
 
 ````js
 {
   data() {
     return {
-      a: {
-        b: 111
+      hello: {
+        name: '哈啰前端'
       }
     }
   },
   watch: {
-    'a.b': function handler1(newval, oldVal) {
+    'hello.name': function handler1(newval, oldVal) {
       console.log(newval);
     },
-    a: function handler2(newval, oldVal) {
+    hello: function handler2(newval, oldVal) {
       console.log(newval);
     }
   },
   mounted() {
-    this.a = 222
+    this.hello = '值得改变'
   }
 }
 ````
-按照以上所描述的流程图，在解析 `a.b` 会同时触发 `a` 的 `get` 方法和 `b` 的 `get` 方法。
-此时 `a` 已经收集了 `handler1` 函数。当再次解析下一个 `watch`  `a` 的时候，又会触发 `a` 的 `get` 方法，重新赋值 `handler2` 函数。所以虽然触发了两次 `get` 方法，但只会收集 `hander2` 函数。最终的结果是
+按照以上所描述的流程图，在解析 `hello.name` 会同时触发 `hello` 的 `get` 方法和 `name` 的 `get` 方法。
+此时 `hello` 已经收集了 `watcher1` 对象。当再次解析 `watch.hello` 的时候，又会触发 `hello` 的 `get` 方法，重新赋值 `watcher2` 对象。所以虽然触发了两次 `get` 方法，但只会收集 `wacther2` 对象。最终只执行 `wacther2` 对象的 `run` 方法，结果
 
-`222`
+`值得改变`
 
 很遗憾的是 `Vue` 保留了两者，结果是
 
-`undefined、222`
+`undefined、值得改变`
 
-显然我们需要把 `handler` 放入数组中，而并非替换。 新值部分并不能直接获取 `set` 方法中的 `newval` 如 `222` 。`handler1` 的新值应该是 `a.b --> undefined` 。所以新值部分需要增加 `get` 方法实时获取，而且还需要 `watchKey` 如 `a.b` 这样的参数，所以数据劫持部分需要定义这些
-````js
-let wOldValList = [wOldVal,……]//存放旧值的数组
-let watchHandlerList = [watchHandler,……]//存放handler函数的数组
-let watchKeyList = [watchKey,……]//存放对应的watchKey以便获取新值使用
-let vm = vue实例
-function get(watchKey) {//在set中执行此方法，获取最新值
-  let getter = parsePath(watchKey)
-  let value = getter.call(vm, vm) 
-  return value
-}
-````
-数据劫持部分的 `set` 方法应该是这样
-````js
-let val = data.name
-set(newVal) {
-  if(newVal === val) {
-    return
-  }
-  watchHandlerList.forEach((handler,index)=> {
-    const newVal = get(watchKeyList(index))//获取新值
-    const oldVal  = wOldValList[index]
-    handler(newVal, oldVal)
-  })
-}
-````
-我们仔细观察会发现定义的三个数组里面的元素在 `set` 方法中使用都是一一对应的，那为什么不合在一个对象上呢，创建 `subs` 数组收集这些 `watcher` 对象，如
-````js
-const subs = [watcher,……]
-const watcher =  {
-  vm: vue实例,
-  watchKey: 'name',
-  get: ()=> {
-    let getter = parsePath(this.watchKey)
-    let value = getter.call(this.vm, this.vm) //值的获取
-    return value
-  },
-  wOldVal: this.get(),
-  watchHandler: watchHandler
-}
-````
-因为每个 `watch` 都需要自己的对象，可以通过一个类来创建如
-````js
-let watchWatcher = new Watcher(vm, 'name', handler)
-class Watcher {
-  constructor (vm, watchKey, handler) {
-    this.vm = vm
-    this.getter = parsePath(watchKey)
-    this.wOldVal = this.get()//旧值的获取
-    this.watchHandler = handler//handler函数的赋值
-  }
-  get() {
-    let value
-    const vm = this.vm
-    value = this.getter.call(vm, vm)
-    return value
-  }
-}
-````
-此时在触发 `get` 方法的前后需要把创建的对象赋值给全局变量 `Handler`
-````js
-let watchWatcher =  new Watcher(vm, 'name', handler)
-class Watcher {
-  constructor (vm, watchKey, handler) {
-    this.vm = vm
-    this.getter = parsePath(watchKey)
-    this.wOldVal = this.get()//旧值的获取
-    this.watchHandler = handler//handler函数的赋值
-  }
-  get() {
-    let value
-    const vm = this.vm
-    Handler = this
-    value = this.getter.call(vm, vm)//触发get方法收集watcher对象
-    Handler = null
-    return value
-  }
-}
-````
-我们看看此时数据劫持部分的 `get` `set` 应该是什么
-````js
-let val = data.name
-get() {
-  if(Handler) {//watcher
-    subs.push(Handler)
-  }
-  return val
-}
-set(newVal) {
-  if(newVal === val) {
-    return
-  }
-  subs.forEach((watcher)=> {
-    const newVal = watcher.getter.call(watcher.vm, watcher.vm)//获取新值
-    watcher.watchHandler(newVal, watcher.wOldVal)
-    watcher.wOldVal = newVal //旧值的重新赋值
-  })
-  //
-  val = newVal;
-}
-````
-我们可以在 `watcher` 对象上创建 `update` 函数来精简数据劫持部分的 `set` 方法，如
-````js
-let watchWatcher =  new Watcher(vm, 'name', handler)
-class Watcher {
-  constructor (vm, watchKey, handler) {
-    this.vm = vm
-    this.getter = parsePath(watchKey)
-    this.wOldVal = this.get()//旧值的获取
-    this.watchHandler = handler//handler函数的赋值
-  }
-  get() {
-    let value
-    const vm = this.vm
-    Handler = this
-    value = this.getter.call(vm, vm)//触发get方法收集watcher对象
-    Handler = null
-    return value
-  }
-  update() {
-    const vm = this.vm
-    const newVal = this.getter.call(vm, vm)//获取新值
-    const oldVal = this.wOldVal
-    this.wOldVal = newVal//旧值的重新赋值
-    this.watchHandler.call(vm, newVal, oldVal)//保证handler函数内部作用域是vm
-  }
-}
-````
-`get` `set` 部分
-````js
-let val = data.name
-get() {
-  if(Handler) {//watcher
-    subs.push(Handler)
-  }
-  return val
-}
-set(newVal) {
-  if(newVal === val) {
-    return
-  }
-  subs.forEach((watcher)=> {
-    watcher.update()
-  })
-  //
-  val = newVal;
-}
-````
-![vue-dom4](./img/vue-dom4.png)
+`watcher1` 和 `watcher2` 的 `run` 方法都执行了，显然我们需要把 `watcher` 对象放入数组中，而并非替换。 对于每个响应式变量来说，创建一个唯一的 `subs` 数组存放收集的 `watcher`。在值改变触发 `set` 方法时，循环执行 `subs` 里面的 `watcher` `run` 方法，改变后流程图
+![vue-img1](./img/vue-img1.png)
 ### 整合页面渲染 与 watch
-- `watch` 的整个流程是先解析表达式，触发 `get` 收集相关 `watcher` 放入 `subs` 数组中，`set` 方法触发时，循环执行 `watcher`的 `update` 方法-->执行 `handler`
+再次看下页面渲染流程图
+![vue-dom1](./img/vue-dom1.png)
+- `watch` 的整个流程是先解析表达式，触发 `get` 收集相关 `watcher` 放入 `subs` 数组中，`set` 方法触发时，循环执行 `watcher`的 `run` 方法-->执行 `handler`
 - 页面渲染的整个流程似乎也差不多，触发 `get` 收集是否执行更新方法的标识，`set` 方法触发时，执行更新函数
-- 对于渲染页面而言，也可以创建 `watcher` 对象，`update` 方法-->执行渲染函数
+
+对于渲染页面而言，也可以创建 `watcher` 对象，触发 `get` 收集渲染 `watcher` 放入 `subs` 数组中。然后 `run` 方法执行-->执行渲染函数
 
 页面渲染的 `watcher`
 ````js
-let renderWatcher =  new Watcher(vm, updateComponent)
+let uid = 0
 class Watcher {
   constructor (vm, updateComponent) {
     this.vm = vm
+    this.id = ++uid // watcher唯一标识
     this.getter = updateComponent
-    this.get() //旧值的获取
+    this.get() //一开始就立即执行渲染函数
   }
   get() {
-    let value
+    Watcher = this; //全局变量 Watcher
     const vm = this.vm
-    Handler = this
-    value = this.getter.call(vm, vm) //触发get方法收集watcher对象
-    Handler = null
-    return value
+    this.getter.call(vm, vm) //执行updateComponent方法
+    Watcher = null
   }
-  update() {
-    const vm = this.vm
-    this.getter.call(vm, vm)//更新页面
+  run() {
+    const value = this.get() //再次执行updateComponent渲染更新函数
   }
 }
 ````
-由于页面渲染没有 `handler` 方法，为了与 `watch` 的 `wather` 对象结构一样，可以在`new` `renderWatcher` 的时候传入空函数作为 `handler` 函数
+由于页面渲染没有 `handler` 方法，为了与 `watch` 的 `wather` 对象结构一样，对于页面渲染可以在`new Watcher` 的时候传入空函数作为 `handler` 函数
 ````js
 let uid = 0
-let renderWatcher =  new Watcher(vm, updateComponent,()=> {})
+const handler = ()=> {}
+class Watcher {
+  constructor (vm, updateComponent, handler) {
+    this.vm = vm
+    this.handler = handler
+    this.id = ++uid // watcher唯一标识
+    this.getter = updateComponent
+    this.oldVal = this.get() //一开始就获取旧值缓存在watcher对象上
+  }
+  get() {
+    Watcher = this; //全局变量 Watcher
+    const vm = this.vm
+    let value = this.getter.call(vm, vm) //值的获取
+    Watcher = null
+    return value
+  }
+  run() {
+    const value = this.get() //新值
+    const oldValue = this.oldVal //旧值
+    this.oldVal = value //旧值替换，以便下次使用
+    this.handler.call(this.vm, value, oldValue)
+  }
+}
+````
+仔细观察发现，`watch` 和 `render` (渲染) 的 `wacther` 只有 `this.getter` 函数的获取是不一样了，可以根据是否为函数来判断，整合之后的 `watcher` 如下
+```js
+let uid = 0
 class Watcher {
   constructor (vm, expOrFn, handler) {
     this.vm = vm
-    this.id = ++uid
-    this.handler = handler //handler函数的赋值
-    if (typeof expOrFn === 'function') {//render watcher
+    this.handler = handler
+    this.id = ++uid // watcher唯一标识
+    if (typeof expOrFn === 'function') {
       this.getter = expOrFn
-    }else {// watch watcher
+    } else {
       this.getter = parsePath(expOrFn)
     }
-    this.wOldVal = this.get() //旧值的获取
+    this.oldVal = this.get() //一开始就获取旧值缓存在watcher对象上
   }
   get() {
-    let value
+    Watcher = this; //全局变量 Watcher
     const vm = this.vm
-    Handler = this
-    value = this.getter.call(vm, vm)//触发get方法收集watcher对象
-    Handler = null
+    let value = this.getter.call(vm, vm) //值的获取
+    Watcher = null
     return value
   }
-  update() {
-    const vm = this.vm
-    const newVal = this.getter.call(vm, vm)//获取新值
-    const oldVal = this.wOldVal
-    this.wOldVal = newVal//旧值的重新赋值
-    this.watchHandler.call(vm, newVal, oldVal)//保证handler函数内部作用域是vm
+  run() {
+    const value = this.get() //新值
+    const oldValue = this.oldVal //旧值
+    this.oldVal = value //旧值替换，以便下次使用
+    this.handler.call(this.vm, value, oldValue)
   }
 }
-````
+```
+渲染函数和 `watch` 共存的流程图
+![vue-img2](./img/vue-img2.png)
 看如下代码
 ````js
 {
