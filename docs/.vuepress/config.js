@@ -1,5 +1,5 @@
 module.exports = {
-  title: 'Hello VuePress',
+  title: 'Hello Vue',
   description: 'Just playing around',
   markdown: {
     lineNumbers: true
@@ -21,9 +21,7 @@ module.exports = {
         collapsable: false,
         children: [
           ['/vueViews/import-vue', 'Vue是什么'],
-          ['/vueViews/render-view', '响应式原理'],
-          // ['/vueViews/render-view1', '响应式原理1'],
-          
+          ['/vueViews/render-view', '响应式原理'],          
         ]
       },
     ],
