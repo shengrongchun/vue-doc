@@ -2064,7 +2064,7 @@ if (typeof Promise !== 'undefined' && isNative(Promise)) {
 ```
 为什么极力希望 `timerFunc` 里面执行优先选择微任务，有以下几点
 - 按执行顺序来看，微任务优先宏任务执行
-- 宏任务与宏任务之间会执行UI渲染：宏任务 -->（所有微任务）UI渲染 --> 宏任务 ……
+- 宏任务与宏任务之间会执行UI渲染：宏任务（js主程序） -->（所有微任务）UI渲染 --> 宏任务 ……
 
 附上一篇文章 [Tasks, microtasks, queues and schedules](https://jakearchibald.com/2015/tasks-microtasks-queues-and-schedules/?utm_source=html5weekly)
 

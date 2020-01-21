@@ -1,5 +1,5 @@
 module.exports = {
-  title: 'Hello Vue',
+  title: 'HELLO VUE',
   description: 'Just playing around',
   markdown: {
     lineNumbers: true
@@ -9,6 +9,13 @@ module.exports = {
       {text: '组件库', link: 'http://doc-data.hellobike.cn/#/doc/mOne'},
     ],
     sidebar: [
+      {
+        title: 'vue',
+        collapsable: false,
+        children: [
+          ['/vueViews/start-vue', 'template'],
+        ]
+      },
       {
         title: '前言',
         collapsable: false,
