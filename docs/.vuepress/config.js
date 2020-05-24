@@ -1,26 +1,26 @@
 module.exports = {
-  title: 'HELLO VUE',
-  description: 'Just playing around',
+  title: 'Vue Parse',
+  description: '图文并茂解析vue主要原理',
   markdown: {
     lineNumbers: true
   },
   themeConfig : {
-    nav:[ // 导航栏配置
-      {text: '组件库', link: 'http://doc-data.hellobike.cn/#/doc/mOne'},
+    nav:[ // 导航栏配置github
+      {text: 'github', link: 'https://github.com/shengrongchun/vue-doc'},
     ],
     sidebar: [
-      {
-        title: 'vue',
-        collapsable: false,
-        children: [
-          ['/vueViews/start-vue', 'template'],
-        ]
-      },
       {
         title: '前言',
         collapsable: false,
         children: [
-          ['/', '暂缺'],
+          ['/', '说明'],
+        ]
+      },
+      {
+        title: 'Vue',
+        collapsable: false,
+        children: [
+          ['/vueViews/start-vue', 'template'],
         ]
       },
       {

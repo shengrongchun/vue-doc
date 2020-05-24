@@ -21,7 +21,7 @@
 import Vue from 'vue'
 new Vue({
   el: '#app', //寻找创建出来的DOM替换的地方
-  template:'<span @click="changeName">{{ name }}</span>' //渲染的模板
+  template:'<button @click="changeName">{{ name }}</button>' //渲染的模板
   data() {
     return {
       name: '哈啰出行,点我试试!'
@@ -34,18 +34,18 @@ new Vue({
   }
 });
 ```
-<demo-1 />
+<comp-1 />
 `Vue` 中有个叫 `compile` 的编译函数, 此函数会把 `template` 编译成 `render` 函数，如以下的精简版:
 ````html
 template
-<span @click="changeName">{{ name }}</span>
+<button @click="changeName">{{ name }}</button>
 ````
 ````js
 const { render } = Vue.compile(template)
 vm._render = render
 render--> () => {
   return with(this){//如果直接vm._render()执行的话 this就是vm
-    return _c('span',
+    return _c('button',
       {
         on:{"click": changeName}
       },

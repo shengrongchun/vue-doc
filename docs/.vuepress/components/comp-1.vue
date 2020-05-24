@@ -1,5 +1,5 @@
 <template>
-    <span @click="changeName">{{ name }}</span>
+    <button @click="changeName">{{ name }}</button>
 </template>
 <script>
 export default {
