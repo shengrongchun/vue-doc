@@ -1,5 +1,6 @@
 module.exports = {
   title: 'Vue Parse',
+  base: '/vue-doc/',
   description: '图文并茂解析vue主要原理',
   markdown: {
     lineNumbers: true
