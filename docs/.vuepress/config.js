@@ -1,39 +1,25 @@
+const vueSideBar = require('./sidebar/vue')
+const routerSideBar = require('./sidebar/router')
+
+//
 module.exports = {
-  title: 'Vue Parse',
-  //base: '/vue-doc/',
+  title: 'Vue 全家桶源码解析系列',
+  base: '/vue-doc/',
   dest: 'dist',
-  description: '图文并茂解析vue主要原理',
+  description: '图文并茂解析Vue全家桶',
   markdown: {
     lineNumbers: true
   },
-  themeConfig : {
-    nav:[ // 导航栏配置github
-      {text: 'github', link: 'https://github.com/shengrongchun/vue-doc'},
+  themeConfig: {
+    nav: [
+      { text: 'Vue', link: '/vueViews/' },
+      { text: 'Vue-Router', link: '/routerViews/' },
+      { text: 'github', link: 'https://github.com/shengrongchun/vue-doc' },// 导航栏配置github
     ],
-    sidebar: [
-      {
-        title: '前言',
-        collapsable: false,
-        children: [
-          ['/', '说明'],
-        ]
-      },
-      {
-        title: 'Vue',
-        collapsable: false,
-        children: [
-          ['/vueViews/start-vue', 'template'],
-        ]
-      },
-      {
-        title: '原理',
-        collapsable: false,
-        children: [
-          ['/vueViews/import-vue', 'Vue是什么'],
-          ['/vueViews/render-view', '响应式原理'],          
-        ]
-      },
-    ],
+    sidebar: {
+      '/vueViews/': vueSideBar,
+      '/routerViews/': routerSideBar,
+    },
     displayAllHeaders: true,
     lastUpdated: 'Last Updated',
   },

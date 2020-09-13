@@ -1,30 +1,20 @@
 {
   "name": "vue-doc",
   "version": "1.0.0",
-  "description": "vue 重要知识点源码解析文章",
+  "description": "vue 全家桶源码解析文章",
   "main": "index.js",
-  "directories": {
-    "doc": "docs"
-  },
-  "dependencies": {
-    "vuepress": "^1.5.0",
-    "element-ui": "^2.11.1"
-  },
-  "devDependencies": {
-    "gh-pages": "^2.2.0"
-  },
   "scripts": {
     "docs:dev": "vuepress dev docs",
     "docs:build": "vuepress build docs",
     "deploy": "gh-pages -d ./dist",
     "deploy:build": "npm run docs:build && npm run deploy"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/shengrongchun/vue-doc.git"
+  "devDependencies": {
+    "vuepress": "^1.5.4"
   },
   "keywords": [
     "vue",
+    "vue-router",
     "源码解析",
     "parse",
     "doc"
