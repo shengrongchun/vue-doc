@@ -18,7 +18,7 @@ new Vue({
   render: h => h(App),
 }).$mount('#app')
 ```
-平时我们在项目开发中使用 `vue-router` 都会这样配置，那么他的内部代码是怎样的呢？跟这我的步伐，让我们一步一步现实一个简单的 `vue-router`
+平时我们在项目开发中使用 `vue-router` 都会这样配置，那么他的内部代码是怎样的呢？让我们一步一步揭开它的神秘面纱吧
 
 ## VueRouter 文件
 我们先上代码: `../router/index`
@@ -37,7 +37,7 @@ if (inBrowser && window.Vue) {
   window.Vue.use(VueRouter)
 }
 ```
-从代码可以看出 `vueRouter` 是一个 `class`, 并且在 `class` 上定义了一个 `install` 方法。当我们 `Vue.use(VueRouter)` 的时候，其实是执行了他的 `install` 方法
+从代码可以看出 `vueRouter` 是一个 `class`, 并且在 `class` 上定义了一个 `install` 方法。当我们 `Vue.use(VueRouter)` 的时候，其实是执行了他的 `install` 方法。`vue` 的插件安装方式
 ```js{1,4}
 import VueRouter from '../router/index'
 …………
@@ -99,9 +99,9 @@ export function install(Vue) {
   Vue.component('RouterLink', Link)
 }
 ```
-难怪我们在 `vue` 实例中都可以用 `this` 来获取这些变量，那么返回的值是什么呢？
+注意深色部分代码，在实例原型上创建了他们，难怪我们在 `vue` 实例中都可以用 `this` 来获取这些变量，那么返回的值是什么呢？
 ### $router
-明确的告诉你，`$router` 就是 `vueRouter` 创建的实例 `this`，而且还定义了一些实例方法
+`$router` 就是 `vueRouter` 创建的实例 `this`，而且还定义了一些实例方法
 ```js{4}
 import { install } from './install'
 export default class VueRouter {
@@ -148,7 +148,7 @@ export function install(Vue) {
 
   _Vue = Vue
   const isDef = v => v !== undefined
-  // 为什么用混入，因为混入，每个vue实例都会执行这段代码，而this就是每个vue实例
+  // 为什么用混入，因为混入，每个vue实例都会执行这段代码，在这里就可以获取到每个vue实例
   Vue.mixin({
     beforeCreate() {
       //这里的this就是每个页面的实例,我们需要为每个实例挂载_router,以便在下面定义的$router
@@ -182,7 +182,7 @@ export function install(Vue) {
 ::: tip
 关于 `17` 行代码，是不是有人会疑惑为什么只判断了上一层的$parent，而不是一直往上递归判断？
 这是由于父子实例的执行顺序决定的：根实例，根的子实例A，A的子实例B，B的子实例C…………
-如果C的父没有，那么一直到根实例都会没有
+如果C的父没有，那么一直到根实例都会没有，所以只要往上判断一层就可以，无需一直判断
 :::
 
 ### $route
@@ -208,22 +208,289 @@ const route = {
 我们通过一张流程图来介绍在 `vue-router` 中 `route` 是怎样产生了
 ![route产生流程图](./img/router-0.png)
 
-从图可以看出，路由的变化有两个方式:
-+ 页面刷新
-+ `router-link` --> push({name: 'bar', path: '/bar'})
+我们简单分析下：
++ 通过我们传入的路由配置数据 `route`，可以构造出 `pathList,pathMap,nameMap`
++ 页面刷新或者初始化时，可以通过浏览器的 `url` 获取到 `path` 
++ `pathMap[path]` 获取到匹配的 `record`，通过路由工厂方法返回路由 `route`
++ 路由跳转还可以用 `router-link`( push方法 )来完成，参数可能是 `name` 或者 `path` 
++ `pathMap[path]` 或者 `nameMap[name]` 获取到匹配的 `record`，通过路由工厂方法返回路由 `route`
 
-## create-route-map.js
-通过传入的路由配置信息，返回 `pathList, pathMap, nameMap`
+接下来我们一步一步实现，首先看看页面刷新或者初始化方法 `init` ，他应该只执行一次，可以放在混入 `mixin` 的根实例判断那里，确保只执行一次
+```js{17-18}
+export function install(Vue) {
+  //表示路由插件已经安装，无需再次安装，确保install方法只调用一次
+  if (install.installed && _Vue === Vue) return
+  install.installed = true
+
+  _Vue = Vue
+  const isDef = v => v !== undefined
+  // 为什么用混入，因为混入，每个vue实例都会执行这段代码，在这里就可以获取到每个vue实例
+  Vue.mixin({
+    beforeCreate() {
+      //这里的this就是每个页面的实例,我们需要为每个实例挂载_router,以便在下面定义的$router
+      //可以在实例中获取，第一步是获取根实例，因为根实例上有 new Router(route)实例对象，
+      //然后把根实例全部挂到子实例中
+      if (isDef(this.$options.router)) {//根实例
+        this._routerRoot = this // this._routerRoot._router -> this.$options.router
+        this._router = this.$options.router
+        //这里确保页面初始化只会执行一次，init放在了new Router(route)实例对象上
+        this._router.init(this) //this为根实例
+      } else {//其他子实例
+        this._routerRoot = (this.$parent && this.$parent._routerRoot) || this
+      }
+    }
+  })
+  …………
+}
+```
+`init` 方法
+```js{5,7-10}
+export default class VueRouter {
+  constructor(options) {
+    this.app = null //根实例
+    this.options = options //new的时候传入的配置信息
+    this.history = new History(this, options.base)
+  }
+  init(app) {
+    if (this.app) return
+    this.app = app
+  }
+  ……
+}
+```
+现在我们需要有获取 `url path` 的方法，我们把这个方法放入另一个文件中 `History`
+```js{6-7,9-11}
+export class History {
+  constructor(router, base) {
+    //路由实例对象
+    this.router = router //$router
+    //基本路径
+    this.base = normalizeBase(base) //需要标准化base
+    this.current = {} //定义匹配后的路由对象
+  }
+  getCurrentLocation() {//通过 url 获取 path 的方法，这里的path是包含hash和query的
+    return getLocation(this.base)
+  }
+}
+// 标准化base
+function normalizeBase(base) {
+  if (!base) {
+    if (inBrowser) {//html中有<base href="/base">, 就把值当作base
+      // respect <base> tag
+      const baseEl = document.querySelector('base')
+      base = (baseEl && baseEl.getAttribute('href')) || '/'
+      // strip full URL origin
+      // eslint-disable-next-line no-useless-escape
+      base = base.replace(/^https?:\/\/[^\/]+/, '')
+    } else {
+      base = '/'
+    }
+  }
+  // make sure there's the starting slash
+  if (base.charAt(0) !== '/') {
+    base = '/' + base
+  }
+  // remove trailing slash 删掉最后的 /
+  return base.replace(/\/$/, '')
+}
+// www.shengrongchun.com/pathname?search=123#hash=111
+export function getLocation(base) {//获取url的path
+  //
+  let path = decodeURI(window.location.pathname) // /pathname
+  if (base && path.toLowerCase().indexOf(base.toLowerCase()) === 0) {
+    path = path.slice(base.length) // path中有base去掉
+  }
+  // /pathname?search=123#hash=111
+  return (path || '/') + window.location.search + window.location.hash
+}
+```
+代码很简单，而且重要的地方都有注释，就不解析了
+
+我们在此代码上再添加路由改变方法 `transitionTo` 与 `updateRoute`
+```js{12-18}
+export class History {
+  constructor(router, base) {
+    //路由实例对象
+    this.router = router //$router
+    //基本路径
+    this.base = normalizeBase(base) //需要标准化base
+    this.current = {} //定义匹配后的路由对象
+  }
+  getCurrentLocation() {//通过 url 获取 path 的方法，这里的path是包含hash和query的
+    return getLocation(this.base)
+  }
+  transitionTo(location) {
+    route = this.router.match(location, this.current)
+    updateRoute(route)
+  }
+  updateRoute(route) {
+    this.current = route 
+  }
+}
+…………
+```
+我们在 `VueRouter` 代码中加入了一些代码
+```js{5,8-10,15-16}
+export default class VueRouter {
+  constructor(options) {
+    this.app = null //根实例
+    this.options = options //new的时候传入的配置信息
+    this.matcher = createMatcher(options.routes || [], this)
+    this.history = new History(this, options.base)
+  }
+  match(location, current) {//通过location获取匹配的route
+    return this.matcher.match(location, current)
+  }
+  init(app) {
+    if (this.app) return
+    this.app = app
+    //
+    const history = history
+    history.transitionTo( history.getCurrentLocation() )
+  }
+  ……
+}
+```
+::: tip
+先不管 `createMatcher` 是什么，我们现在只要知道，`this.matcher` 对象中有 `match` 方法
+`this.matcher.match(location, current)` 会返回我们需要的路由对象
+:::
+install 文件添加一些重要代码
+```js{19,33}
+export function install(Vue) {
+  //表示路由插件已经安装，无需再次安装，确保install方法只调用一次
+  if (install.installed && _Vue === Vue) return
+  install.installed = true
+
+  _Vue = Vue
+  const isDef = v => v !== undefined
+  // 为什么用混入，因为混入，每个vue实例都会执行这段代码，在这里就可以获取到每个vue实例
+  Vue.mixin({
+    beforeCreate() {
+      //这里的this就是每个页面的实例,我们需要为每个实例挂载_router,以便在下面定义的$router
+      //可以在实例中获取，第一步是获取根实例，因为根实例上有 new Router(route)实例对象，
+      //然后把根实例全部挂到子实例中
+      if (isDef(this.$options.router)) {//根实例
+        this._routerRoot = this // this._routerRoot._router -> this.$options.router
+        this._router = this.$options.router
+        //这里确保页面初始化只会执行一次，init放在了new Router(route)实例对象上
+        this._router.init(this) //this为根实例
+        this._route = this._router.history.current
+      } else {//其他子实例
+        this._routerRoot = (this.$parent && this.$parent._routerRoot) || this
+      }
+    }
+  })
+  //
+  Object.defineProperty(Vue.prototype, '$router', {
+    get() {
+      return this._routerRoot._router
+    }
+  })
+  Object.defineProperty(Vue.prototype, '$route', {
+    get() {
+      return this._routerRoot._route
+    }
+  })
+  //注册全局组件
+  Vue.component('RouterView', View)
+  Vue.component('RouterLink', Link)
+}
+```
+目前 `_route(history.current)` 运转流程图
+![route运转流程图](./img/router-00.jpg)
+
+## match 方法实现
+```js
+this.matcher = createMatcher(options.routes || [], this)
+this.matcher.match(location, current)
+```
+它会返回我们匹配成功的路由信息，我们来看看他是怎么实现的
+
+normalizeLocation
+```js
+export function normalizeLocation(
+  raw,
+  current,
+  append,
+  router
+) {
+  let next = typeof raw === 'string' ? { path: raw } : raw
+  return next
+}
+```
+## createMatcher
+```js{16,19,28}
+export function createMatcher(
+  routes,
+  router
+) {
+  // createRouteMap先不需要知道是什么，只要知道他返回了 pathList, pathMap, nameMap
+  const { pathList, pathMap, nameMap } = createRouteMap(routes)
+  //
+  function match(
+    raw,
+    currentRoute
+  ) {
+    const location = normalizeLocation(raw, currentRoute, false, router)
+    const { name, path } = location
+    if(name) {
+      const record = nameMap[name]
+      return _createRoute(record, location)
+    }else if(path){
+      const record = pathMap[path]
+      return _createRoute(record, location)
+    }
+    return _createRoute(null, location)
+  }
+  //
+  function _createRoute(
+    record,
+    location,
+  ) {
+    return createRoute(record, location, redirectedFrom, router)
+  }
+  //
+  return {
+    match
+  }
+
+}
+```
+整个代码的功能就是获取匹配的 `record` 和 `location` 一起作为参数传入 `createRoute` 方法返回 `route`
+
+## createRoute
+```js
+export function createRoute(
+  record,
+  location
+) {
+  const route = {
+    name: location.name || (record && record.name),//当前路由的名称，如果有的话
+    meta: (record && record.meta) || {},//meta元数据，如果有的话
+    //字符串，对应当前路由的路径，总是解析为绝对路径，如 "/foo/bar"
+    path: location.path || '/',
+    //当前路由匹配的组件
+    matched: {components: record.components}
+  }
+  //
+  return Object.freeze(route)//冻结对象，不让其修改
+}
+```
+## createRouteMap
+最后让我们来看看 `createRouteMap` 到底是如何返回 `pathList,pathMap,nameMap`
+
+cleanPath
 ```js
 //把path中 '//' --> '/'
 export function cleanPath(path) {
   return path.replace(/\/\//g, '/')
 }
 ```
+createRouteMap
 ```js
 import { cleanPath } from './util/path'
 import { assert, warn } from './util/warn'
-
 export function createRouteMap(
   routes
 ) {
@@ -297,6 +564,10 @@ function normalizePath(
   return cleanPath(`${parent.path}/${path}`)
 }
 ```
+::: tip
+遍历传入的路由配置数据，把相关数据信息存入 `pathList, pathMap, nameMap` 中。这段代码没有什么注释，因为只要耐心看，就很容易看懂
+:::
+
 例子
 ```js
 const route = [
@@ -334,26 +605,6 @@ const nameMap = {
   ……
 }
 ```
-## `route` 创建工厂方法 createRoute
-```js
-export function createRoute(
-  record,
-  location,
-) {
-  const route = {
-    name: location.name || (record && record.name),//当前路由的名称，如果有的话
-    meta: (record && record.meta) || {},//meta元数据，如果有的话
-    path: location.path || '/',//字符串，对应当前路由的路径，总是解析为绝对路径，如 "/foo/bar"
-    matched:  {
-      components: record.components
-    }
-  }
-  //
-  return Object.freeze(route)//冻结对象，不让其修改
-}
-```
-
-## 获取 url path 方法
 
 
 
@@ -368,205 +619,5 @@ export function createRoute(
 
 
 
+[这里附上代码地址,请把分支切到 br-0 查看](https://github.com/shengrongchun/parse-vue-router)
 
-<!-- ::: tip
-`$route` 其实是当前路由的相关信息，以上只展示了最基本的信息，当前路由 `route` 的信息是根据我们传入的路由配置信息和当前 `url` 上解析的 `path` 匹配出来的
-:::
-我们传入的配置信息文件如：
-
-route.js
-```js
-import Home from './components/Home'
-import Foo from './components/Foo'
-import Bar from './components/Bar'
-
-export default {
-  base: '/',
-  routes: [
-    { path: '/', name: 'home', component: Home },
-    { path: '/foo', name: 'foo', component: Foo },
-    { path: '/bar', name: 'bar', component: Bar }
-  ]
-}
-```
-我们需要创建一个 `create-matcher.js` 文件返回 `match` 方法，这个方法通过传入的参数 `path` 返回相应的路由信息
-
-create-matcher.js
-```js
-const getRouteMap = function(routes) {
-  const pathList = ['', '/foo', '/bar']
-  const pathMap = {
-    '': {
-      name: 'home',
-      path: '',
-      matched: {default: Home}
-    },
-    '/foo': {
-      name: 'foo',
-      path: '/foo',
-      matched: {default: Foo}
-    },
-    '/bar': {
-      name: 'bar',
-      path: '/bar',
-      matched: {default: Bar}
-    },
-  }
-  //
-  return {
-    pathList,
-    pathMap,
-  }
-}
-export function createMatcher(routes) {
-  const { pathMap } = getRouteMap(routes)
-  function match(raw) {
-    const { path } = raw
-    if(path) {
-      return pathMap[path]
-    }
-    return {}
-  }
-  //
-  return {
-    match
-  }
-}
-```
-根据用户传入的 `route` 配置信息，实现了传入 `path` 参数返回路由信息的方法 `match`。接下来我们要创建解析 `url` 的方法
-
-history.js
-```js{11-21}
-export class History {
-  constructor(router, base) {
-    //路由实例对象
-    this.router = router //$router
-    //基本路径
-    this.base = normalizeBase(base)
-    // start with a route object that stands for "nowhere"
-    //当前路由对象 但一开始的当前路由应该空路由
-    this.current = {} // 当前路由对象
-  }
-  getCurrentLocation() {//获取当前url path
-    return getLocation(this.base)
-  }
-  transitionTo(location) {
-    //根据path获取匹配的 route 然后更新当前 route
-    const route = this.router.match(location)
-    this.updateRoute(route)
-  }
-  updateRoute(route) {
-    this.current = route // 更改当前路由
-  }
-}
-
-export function getLocation(base) {//获取path
-  let path = decodeURI(window.location.pathname)
-  //如果path从头开始有base,则删掉base
-  if (base && path.toLowerCase().indexOf(base.toLowerCase()) === 0) {
-    path = path.slice(base.length)
-  }
-  return (path || '/')
-}
-// 标准化base
-function normalizeBase(base) {
-  if (!base) {
-    if (inBrowser) {//html中有<base href="/base">, 就把值当作base
-      // respect <base> tag
-      const baseEl = document.querySelector('base')
-      base = (baseEl && baseEl.getAttribute('href')) || '/'
-      // strip full URL origin
-      // eslint-disable-next-line no-useless-escape
-      base = base.replace(/^https?:\/\/[^\/]+/, '')
-    } else {
-      base = '/'
-    }
-  }
-  // make sure there's the starting slash
-  if (base.charAt(0) !== '/') {
-    base = '/' + base
-  }
-  // remove trailing slash 删掉最后的 /
-  return base.replace(/\/$/, '')
-}
-```
-`getLocation` 方法返回当前 `url` 的 `path` 方法，`transitionTo` 获取匹配的 `route` 并且改变 `route`
-
-需要的功能方法已经创建好，我们再次改造下 install.js 以及 vueRouter
-
-install.js
-```js{16,17,31}
-export function install(Vue) {
-  //表示路由插件已经安装，无需再次安装，确保install方法只调用一次
-  if (install.installed && _Vue === Vue) return
-  install.installed = true
-
-  _Vue = Vue
-  const isDef = v => v !== undefined
-  // 为什么用混入，因为混入，每个vue实例都会执行这段代码，而this就是每个vue实例
-  Vue.mixin({
-    beforeCreate() {
-      //这里的this就是vue实例，每个页面的实例,我们需要为每个实例挂载_router,以便在下面定义的$router
-      //可以在this实例中获取，第一步是获取根实例，因为根实例上有 new Router()实例对象
-      if (isDef(this.$options.router)) {//根实例
-        this._routerRoot = this // this._routerRoot._router -> this.$options.router
-        this._router = this.$options.router
-        this._router.init(this) //初始化的时候去执行了 vueRouter 实例的init方法
-        this._route =  this._router.history.current
-      } else {//其他子实例
-        this._routerRoot = (this.$parent && this.$parent._routerRoot) || this
-      }
-    }
-  })
-  //
-  Object.defineProperty(Vue.prototype, '$router', {
-    get() {
-      return this._routerRoot._router
-    }
-  })
-  Object.defineProperty(Vue.prototype, '$route', {
-    get() {
-      return this._routerRoot._route
-    }
-  })
-  ……
-}
-```
-我们改造了 vueRouter，增加了init 方法，并且添加了 history
-```js{4-21}
-import { History } from './history/base'
-import { install } from './install'
-export default class VueRouter {
-  constructor(options) {//options我们传入的路由配置文件 new VueRouter(options)
-    this.app = null //根实例
-    this.options = options
-    // 返回match方法
-    this.matcher = createMatcher(options.routes || [], this)
-    this.history = new History(this, options.base)
-  }
-  match(location) {
-    return this.matcher.match(location)
-  }
-  //初始化方法
-  init(app) {//app vue根实例
-    if (this.app) return
-    this.app = app
-    const history = this.history
-    //初始化时候去匹配更改当前路由
-    history.transitionTo(history.getCurrentLocation())
-  }
-}
-//
-VueRouter.install = install // install方法
-VueRouter.version = '__VERSION__' // 版本
-
-// 如果是浏览器环境，并且有 window.Vue 则直接运行 Vue.use(VueRouter)
-if (inBrowser && window.Vue) {
-  window.Vue.use(VueRouter)
-}
-```
-这里感觉有点复杂，我们通过一张流程图来解释吧
-![route改变流程图](./img/router-1.png)
-最终在初始化或者刷新页面的时候，根据解析 `url` 获取到 `path` 来匹配得到当前 `route`
-
-[这里附上代码地址,请把分支切到 br-0 查看](https://github.com/shengrongchun/parse-vue-router) -->
