@@ -10,6 +10,7 @@ module.exports = {
   markdown: {
     lineNumbers: true
   },
+  plugins: ['@vuepress/back-to-top'],//回到顶部
   themeConfig: {
     nav: [
       { text: 'Vue', link: '/vueViews/' },
@@ -20,7 +21,8 @@ module.exports = {
       '/vueViews/': vueSideBar,
       '/routerViews/': routerSideBar,
     },
-    displayAllHeaders: true,
+    //displayAllHeaders: true,
+    sidebarDepth: 3,
     lastUpdated: 'Last Updated',
   },
 }
