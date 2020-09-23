@@ -18,7 +18,11 @@ new Vue({
   render: h => h(App),
 }).$mount('#app')
 ```
-平时我们在项目开发中使用 `vue-router` 都会这样配置，那么他的内部代码是怎样的呢？让我们一步一步揭开它的神秘面纱吧
+平时我们在项目开发中使用 `vue-router` 都会这样配置，那么他的内部代码是怎样运转的呢？我们先从实现一个简易的路由系统开始：
+
+::: tip
+[这里附上github代码地址,有代码调试会更容易理解。请把分支切到 stage-0 查看](https://github.com/shengrongchun/parse-vue-router)
+:::
 
 ## VueRouter
 我们先上代码: `../router/index`
@@ -51,7 +55,7 @@ new Vue({
 ```
 那么 `install.js` 文件又做了什么呢？
 
-## install.js
+## install
 ```js{14,15}
 import View from './components/view'
 import Link from './components/link'
@@ -70,10 +74,9 @@ export function install(Vue) {
   Vue.component('RouterLink', Link)
 }
 ```
-代码很简洁，而且很容易看懂，最主要的功能就是注册了两个全局的组件: `RouterView` `RouterLink`
+代码很简洁，而且很容易看懂，最主要的功能就是注册了两个全局的组件: `RouterView` `RouterLink`。`RouterView` `RouterLink` 之后会介绍，我们先搞清楚平时用的很多的  `$router` 与 `$route` 
 
 ## $router 与 $route
-`RouterView` `RouterLink` 之后会介绍，我们先搞清楚平时用的很多的  `$router` 与 `$route` 
 
 `install.js` 文件添加一些代码
 ```js{8-17}
@@ -209,8 +212,8 @@ const route = {
 我们简单分析下：
 + 通过我们传入的路由配置数据 `route`，可以构造出 `pathList,pathMap,nameMap`
 + 页面刷新或者初始化时，可以通过浏览器的 `url` 获取到 `path` 
-+ `pathMap[path]` 获取到匹配的 `record`，通过路由工厂方法返回路由 `route`
-+ 路由跳转还可以用 `router-link`( push方法 )来完成，参数可能是 `name` 或者 `path` 
++ `pathMap[path]` 获取到匹配的 `record`，再通过路由工厂方法 `createRoute` 返回所需路由 `route`
++ 路由跳转还可以用 `router-link`( push/replace方法 )来完成，参数可能是 `name` 或者 `path` 
 + `pathMap[path]` 或者 `nameMap[name]` 获取到匹配的 `record`，通过路由工厂方法返回路由 `route`
 
 接下来我们一步一步实现，首先看看页面刷新或者初始化方法 `init` ，他应该只执行一次，可以放在混入 `mixin` 的根实例判断那里，确保只执行一次
@@ -273,13 +276,12 @@ export class History {
 }
 // 标准化base
 function normalizeBase(base) {
-  if (!base) {
-    if (inBrowser) {//html中有<base href="/base">, 就把值当作base
+  if (!base) {//无base
+    if (inBrowser) {//浏览器模式：html中有<base href="/base">, 就把值当作base
       // respect <base> tag
       const baseEl = document.querySelector('base')
       base = (baseEl && baseEl.getAttribute('href')) || '/'
-      // strip full URL origin
-      // eslint-disable-next-line no-useless-escape
+      // strip full URL origin https:// http://是要去掉的
       base = base.replace(/^https?:\/\/[^\/]+/, '')
     } else {
       base = '/'
@@ -295,9 +297,9 @@ function normalizeBase(base) {
 // www.shengrongchun.com/pathname?search=123#hash=111
 export function getLocation(base) {//获取url的path
   //
-  let path = decodeURI(window.location.pathname) // /pathname
+  let path = decodeURI(window.location.pathname) // /pathname decode编码
   if (base && path.toLowerCase().indexOf(base.toLowerCase()) === 0) {
-    path = path.slice(base.length) // path中有base去掉
+    path = path.slice(base.length) // path开始部分有base要去掉
   }
   // /pathname?search=123#hash=111
   return (path || '/') + window.location.search + window.location.hash
@@ -410,16 +412,18 @@ export class History {
 目前 `_route(history.current)` 运转流程图
 ![route运转流程图](./img/router-00.jpg)
 
+确实会有点绕，可以通过代码调试方式理清楚这里的逻辑（官网源码就是这样设计的😄）
+
 ## match 方法
-```js
+```js{3}
 this.matcher = createMatcher(options.routes || [], this)
 ……
 return this.matcher.match(location, current)
 ```
-它会返回我们匹配成功的路由信息，我们来看看他是怎么实现的。先看几个方法，`createMatcher Class` 会用到
+它会返回我们匹配成功的路由信息，我们来看看他是怎么实现的。先看几个方法，`createMatcher` 会用到
 
 ### normalizeLocation
-```js
+```js{34-48}
 //浅copy
 export function extend(a, b) {
   for (const key in b) {
@@ -465,7 +469,7 @@ export function normalizeLocation(
   const parsedPath = parsePath(next.path || '')
   const path = parsedPath.path
   return {
-    _normalized: true,
+    _normalized: true, // 标准化后的标识
     path
   }
 }
@@ -511,7 +515,7 @@ export function createMatcher(
 整个代码的功能就是获取匹配的 `record` 和 `location` 一起作为参数传入 `createRoute` 方法返回 `route`
 
 ## createRoute
-```js
+```js{5-12}
 export function createRoute(
   record,
   location
@@ -550,7 +554,7 @@ export function cleanPath(path) {
 }
 ```
 createRouteMap
-```js
+```js{10-12,20}
 import { cleanPath } from './util/path'
 import { assert, warn } from './util/warn'
 export function createRouteMap(
@@ -578,6 +582,7 @@ function addRouteRecord(
 ) {
   const { path, name } = route
   if (process.env.NODE_ENV !== 'production') {//非生产环境警告，配置信息path是必须的
+    // assert方法可以在工具公共方法中查看，第一个参数是false,会触发警告
     assert(path != null, `"path" is required in a route configuration.`)
     assert(//非生产环境警告，component不能是字符串，必须是一个真实的组件
       typeof route.component !== 'string',
@@ -586,9 +591,10 @@ function addRouteRecord(
       )} cannot be a ` + `string id. Use an actual component instead.`
     )
   }
+  // pathToRegexpOptions是在动态路由功能时 正则匹配的配置信息对象，这里可以先不了解
   const pathToRegexpOptions =
     route.pathToRegexpOptions || {}
-  //标准化path
+  //标准化path normalizePath方法在最下方
   const normalizedPath = normalizePath(path, null, pathToRegexpOptions.strict)
   const record = {
     path: normalizedPath,
@@ -623,11 +629,13 @@ function normalizePath(
   if (!strict) path = path.replace(/\/$/, '') // 非严格模式会去掉path最后的 /
   if (path[0] === '/') return path
   if (parent == null) return path
+  // 如果有parent,是要拼上parent.path 
+  // 如：{path: '/a',children: [{path: 'b'-->其实完整path:/a/b}]}
   return cleanPath(`${parent.path}/${path}`)
 }
 ```
 ::: tip
-遍历传入的路由配置数据，把相关数据信息存入 `pathList, pathMap, nameMap` 中。这段代码没有什么注释，因为只要耐心看，就很容易看懂
+遍历传入的路由配置数据，把相关数据信息存入 `pathList, pathMap, nameMap` 中
 :::
 
 例子
@@ -764,7 +772,7 @@ export class History {
 …………
 ```
 ::: tip 解析
-初始化或者页面刷新的时候，还没有 `this.cb`，当第二次以及之后执行 `transitionTo updateRoute`，就会有然后执行 `this.cb` 改变 `app._route`。为什么初始化还没有 `this.cb`，请看下面的代码
+初始化或者页面刷新的时候，还没有 `this.cb`，当第二次以及之后执行 `transitionTo updateRoute`，`this.cb` 就会有值，然后执行 `this.cb` 改变 `app._route`。为什么初始化还没有 `this.cb`，请看下面的代码
 :::
 ```js{6,8}
 init(app) {
@@ -876,7 +884,7 @@ export default {
 }
 ```
 ::: tip 解析
-代码并不复杂，就是点击触发 `push` 方法，`to` 是我们传入的参数，需要转为 `location` 我们需要在 `History` 中增加 `resolve` 方法转换
+代码并不复杂，就是点击触发 `push` 方法，`to` 是我们传入的参数，需要转为 `location` 。我们需要在 `History` 中增加 `resolve` 方法转换
 :::
 ## resolve
 ```js{30-44}
