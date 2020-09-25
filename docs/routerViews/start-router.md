@@ -1,5 +1,9 @@
 # `vue-router` 简单功能实现
 
+::: tip 提示
+[这里附上github代码地址,有代码调试会更容易理解。请把分支切到 stage-0 查看](https://github.com/shengrongchun/parse-vue-router)
+:::
+
 ## 使用例子
 ```js{3,4,9,10}
 import Vue from 'vue'
@@ -19,10 +23,6 @@ new Vue({
 }).$mount('#app')
 ```
 平时我们在项目开发中使用 `vue-router` 都会这样配置，那么他的内部代码是怎样运转的呢？我们先从实现一个简易的路由系统开始：
-
-::: tip
-[这里附上github代码地址,有代码调试会更容易理解。请把分支切到 stage-0 查看](https://github.com/shengrongchun/parse-vue-router)
-:::
 
 ## VueRouter
 我们先上代码: `../router/index`
@@ -947,7 +947,8 @@ export default {
     },
   },
   render(_, { props, children, parent, data }) {
-    //
+    // directly use parent context's createElement() function
+    // so that components rendered by router-view can resolve named slots
     const h = parent.$createElement
     const name = props.name
     const route = parent.$route //组件依赖了$route
@@ -1002,6 +1003,5 @@ watch: {
 }
 ```
 ## 总结
-一个简单的路由终于实现了，如果还是觉得思路很乱。可以访问 `github` 查看相关代码（求Star），建议下载下来调试
-[这里附上github代码地址,请把分支切到 stage-0 查看](https://github.com/shengrongchun/parse-vue-router)
+一个简单的路由终于实现了，不过只有页面切换功能。接下来我们会为其添加各种功能，最终实现官网的所有功能。不过在阅读此系列文章，最好是比较熟悉 `vue-router` 的相关 `api` 是怎么用的。
 

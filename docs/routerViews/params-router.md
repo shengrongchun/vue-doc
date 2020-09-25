@@ -137,6 +137,5 @@ export function createMatcher(
 ::: tip 解析
 相比之前的代码，这里加了些对 `params` 的处理还有一些警告。`24` 行代码非常重要，这是为什么当你 `push({path: xxx, params: {……}})` 的时候，`params` 参数无效的原因
 :::
-`normalizeLocation` 方法之前只解析 `path` 的，此时我们还要加上解析 `params,hash,query` 等等。可以[查看normalizeLocation](/routerViews/util-router.html#normalizelocation)
-
+`normalizeLocation` 方法之前只解析 `path` 的，此时我们还要加上解析 `params,hash,query` 等等。可以[查看normalizeLocation](/routerViews/util-router.html#normalizelocation)。
 

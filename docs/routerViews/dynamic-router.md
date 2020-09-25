@@ -29,7 +29,7 @@ const result = demo.match(regex)
 //如果有值则匹配上result: ["/man/123/456", "123", "456", index: 0, input: "/man/123/456", ……]
 ```
 我们传入的路由配置信息会有像这样 `/man/:id/:user` 的 `path`。我们应该在创建 `record` 记录上通过传入的 `path` 增加 `regex`。供后续使用
-::: tip 提示
+::: tip createRouteMap 提示
 `17-23` 行代码功能的[官网介绍]( https://router.vuejs.org/zh/guide/essentials/dynamic-matching.html#%E6%8D%95%E8%8E%B7%E6%89%80%E6%9C%89%E8%B7%AF%E7%94%B1%E6%88%96-404-not-found-%E8%B7%AF%E7%94%B1)
 :::
 ### createRouteMap

@@ -21,6 +21,7 @@ module.exports = [
           './passing-router',
           './cache-router-view-router',
           './redirect-and-alias-router',
+          './navigation-router',
         ],
       }
     ]
