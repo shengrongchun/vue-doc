@@ -1,3 +1,5 @@
+# 公共方法
+
 ## inBrowser 
 ```js
 export const inBrowser = typeof window !== 'undefined'
@@ -385,5 +387,47 @@ export function getStateKey() {//获取唯一key
 ```js
 export function setStateKey(key) {//设置唯一key
   return (_key = key)
+}
+```
+## getElementPosition
+```js
+function getElementPosition(el, offset) {//获取目标元素应该滚动的x,y位置
+  const docEl = document.documentElement //当前文档
+  const docRect = docEl.getBoundingClientRect()//当前文档的位置信息
+  const elRect = el.getBoundingClientRect() //目标元素位置信息
+  return {
+    x: elRect.left - docRect.left - offset.x,
+    y: elRect.top - docRect.top - offset.y
+  }
+}
+```
+## isValidPosition
+```js
+function isValidPosition(obj) {
+  return isNumber(obj.x) || isNumber(obj.y)
+}
+```
+## normalizePosition
+```js
+function normalizePosition(obj) {//标准化偏移
+  return {
+    x: isNumber(obj.x) ? obj.x : window.pageXOffset,
+    y: isNumber(obj.y) ? obj.y : window.pageYOffset
+  }
+}
+```
+## normalizeOffset
+```js
+function normalizeOffset(obj) {//标准化offset
+  return {
+    x: isNumber(obj.x) ? obj.x : 0,
+    y: isNumber(obj.y) ? obj.y : 0
+  }
+}
+```
+## isNumber
+```js
+function isNumber(v) {
+  return typeof v === 'number'
 }
 ```

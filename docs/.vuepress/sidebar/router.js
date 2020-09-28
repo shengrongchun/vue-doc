@@ -27,8 +27,13 @@ module.exports = [
     ]
   },
   {
+    title: '进阶',
+    collapsable: false,
+    children: ['./scroll-behavior']
+  },
+  {
     title: '工具',
     collapsable: true,//可折叠
-    children: [['./util-router', '公共方法']],
+    children: ['./util-router'],
   },
 ]
