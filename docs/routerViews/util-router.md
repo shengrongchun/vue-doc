@@ -431,3 +431,235 @@ function isNumber(v) {
   return typeof v === 'number'
 }
 ```
+## isSameRoute
+```js
+//是否相同route
+export function isSameRoute(a, b) {
+  if (b === START) {
+    return a === b
+  } else if (!b) {
+    return false
+  } else if (a.path && b.path) {
+    return (
+      a.path.replace(trailingSlashRE, '') === b.path.replace(trailingSlashRE, '') &&
+      a.hash === b.hash &&
+      isObjectEqual(a.query, b.query)
+    )
+  } else if (a.name && b.name) {
+    return (
+      a.name === b.name &&
+      a.hash === b.hash &&
+      isObjectEqual(a.query, b.query) &&
+      isObjectEqual(a.params, b.params)
+    )
+  } else {
+    return false
+  }
+}
+```
+## isObjectEqual
+```js
+function isObjectEqual(a = {}, b = {}) {
+  // handle null value #1566
+  if (!a || !b) return a === b
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) {
+    return false
+  }
+  return aKeys.every(key => {
+    const aVal = a[key]
+    const bVal = b[key]
+    // query values can be null and undefined
+    if (aVal == null || bVal == null) return aVal === bVal
+    // check nested equality
+    if (typeof aVal === 'object' && typeof bVal === 'object') {
+      return isObjectEqual(aVal, bVal)
+    }
+    return String(aVal) === String(bVal)
+  })
+}
+```
+## isIncludedRoute
+```js
+//
+export function isIncludedRoute(current, target) {
+  return (
+    current.path.replace(trailingSlashRE, '/').indexOf(
+      target.path.replace(trailingSlashRE, '/')
+    ) === 0 &&
+    (!target.hash || current.hash === target.hash) &&
+    queryIncludes(current.query, target.query)
+  )
+}
+```
+## queryIncludes
+```js
+function queryIncludes(current, target) {
+  for (const key in target) {
+    if (!(key in current)) {
+      return false
+    }
+  }
+  return true
+}
+```
+## resolveQueue
+::: tip 例子
+比如：current：[a,b,c], next: [a,b,d] --> i=2
+
+updated: next.slice(0, i), --> a,b
+
+activated: next.slice(i),  --> d
+
+deactivated: current.slice(i) --> c
+:::
+```js
+// 获取更新 激活 停用 record 数组
+function resolveQueue(
+  current,
+  next
+) {
+  let i
+  const max = Math.max(current.length, next.length)
+  for (i = 0; i < max; i++) {
+    if (current[i] !== next[i]) {
+      break
+    }
+  }
+  return {
+    updated: next.slice(0, i), //更新 record 数组
+    activated: next.slice(i), //激活 record 数组
+    deactivated: current.slice(i)//停用 record数组
+  }
+}
+```
+## flatMapComponents
+```js
+export function flatMapComponents(
+  matched,
+  fn
+) {
+  return flatten(matched.map(m => {
+    return Object.keys(m.components).map(key => fn( //key是定义的组件名称： default name1 name2
+      m.components[key],// 组件 component
+      //对应组件实例 前提是 record上应该有个instances对象
+      m.instances[key], 
+      m, key    // record 和 如default
+    ))
+  }))
+}
+```
+## flatten
+``` js
+export function flatten(arr) {//数组扁平处理 [].concat([1,2],3)--> [1,2,3]
+  return Array.prototype.concat.apply([], arr)
+}
+```
+## runQueue
+::: tip 解析
+轮询处理 `queue` 中的每一个`item`。如果`item`是`undefined`则执行下一个`item`。如果不是`undefined`则执行`fn`。如果一切顺利`queue`中的所有`item`都处理了，执行`cb`
+::: 
+queue: [undefined,……,function(to,from,next),……]
+```js
+export function runQueue(queue, fn, cb) {
+  const step = index => {
+    if (index >= queue.length) {
+      cb()
+    } else {
+      if (queue[index]) {
+        fn(queue[index], () => {
+          step(index + 1)
+        })
+      } else {
+        step(index + 1)
+      }
+    }
+  }
+  step(0)
+}
+```
+## NavigationFailureType
+```js
+export const NavigationFailureType = {
+  redirected: 1, //重定向错误类型码
+  aborted: 2, // 终止路由错误
+  cancelled: 3, // 取消路由跳转错误
+  duplicated: 4 //跳转相同路由错误码 （冗余导航）
+}
+```
+## createNavigationRedirectedError
+```js
+export function createNavigationRedirectedError(from, to) {
+  return createRouterError(
+    from,
+    to,
+    NavigationFailureType.redirected,
+    `Redirected when going from "${from.fullPath}" to "${stringifyRoute(
+      to
+    )}" via a navigation guard.`
+  )
+}
+```
+## createNavigationDuplicatedError
+```js
+//冗余导航错误
+export function createNavigationDuplicatedError(from, to) {
+  return createRouterError(
+    from,
+    to,
+    NavigationFailureType.duplicated,
+    `Avoided redundant navigation to current location: "${from.fullPath}".`
+  )
+}
+```
+## createNavigationCancelledError
+```js
+export function createNavigationCancelledError(from, to) {
+  return createRouterError(
+    from,
+    to,
+    NavigationFailureType.cancelled,
+    `Navigation cancelled from "${from.fullPath}" to "${to.fullPath
+    }" with a new navigation.`
+  )
+}
+```
+## createNavigationAbortedError
+```js
+export function createNavigationAbortedError(from, to) {
+  return createRouterError(
+    from,
+    to,
+    NavigationFailureType.aborted,
+    `Navigation aborted from "${from.fullPath}" to "${to.fullPath
+    }" via a navigation guard.`
+  )
+}
+```
+## createRouterError
+```js
+//创建一个路由类型错误
+function createRouterError(from, to, type, message) {
+  const error = new Error(message)
+  error._isRouter = true
+  error.from = from
+  error.to = to
+  error.type = type
+
+  return error
+}
+```
+## stringifyRoute
+```js
+const propertiesToLog = ['params', 'query', 'hash']
+function stringifyRoute(to) {
+  if (typeof to === 'string') return to
+  if ('path' in to) return to.path
+  const location = {}
+  propertiesToLog.forEach(key => {
+    if (key in to) location[key] = to[key]
+  })
+  return JSON.stringify(location, null, 2)
+}
+```

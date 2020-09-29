@@ -4,7 +4,7 @@
 完整代码分支 [stage-8](https://github.com/shengrongchun/parse-vue-router)
 
 在解析如何实现滚动行为之前，你应该熟悉如何使用或者你已经阅读过官网介绍。滚动行为应该是路由跳转成功后需要执行的行为
-### 浏览器回退执行滚动行为
+## 浏览器回退执行滚动行为
 如果定义了滚动行为，在浏览器回退时，我们应该做什么
 + 记住之前页面的滚动位置，当作用户自定义滚动行为的第三个参数：scrollBehavior (to, from, savedPosition)
 + 回退的新页面也要执行滚动行为
@@ -89,7 +89,7 @@ function handlePopState(e) {
   }
 }
 ```
-### 初始化部分执行滚动行为
+## 初始化部分执行滚动行为
 ```js{10,15}
 init(app) {// app根实例
   /*…………*/
@@ -251,7 +251,7 @@ function isNumber(v) {
   return typeof v === 'number'
 }
 ```
-### push/replace 部分执行滚动行为
+## push/replace 部分执行滚动行为
 当执行 `push` 或者 `replace` 的时候也需要执行滚动行为
 ```js{6,16}
 push(location, onComplete, onAbort) {

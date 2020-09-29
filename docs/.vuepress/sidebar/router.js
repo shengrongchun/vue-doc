@@ -29,7 +29,7 @@ module.exports = [
   {
     title: '进阶',
     collapsable: false,
-    children: ['./scroll-behavior']
+    children: ['./scroll-behavior-router', './navigation-guards-router']
   },
   {
     title: '工具',
