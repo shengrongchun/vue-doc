@@ -32,6 +32,11 @@ module.exports = [
     children: ['./scroll-behavior-router', './navigation-guards-router']
   },
   {
+    title: '完善',
+    collapsable: false,
+    children: ['./router-link-router']
+  },
+  {
     title: '工具',
     collapsable: true,//可折叠
     children: ['./util-router'],
