@@ -34,7 +34,7 @@ module.exports = [
   {
     title: '完善',
     collapsable: false,
-    children: ['./router-link-router', 'mode-router']
+    children: ['./router-link-router', 'mode-router', 'api-router']
   },
   {
     title: '工具',
