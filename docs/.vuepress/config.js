@@ -1,5 +1,6 @@
 const vueSideBar = require('./sidebar/vue')
 const routerSideBar = require('./sidebar/router')
+const vuexSideBar = require('./sidebar/vuex')
 
 //
 module.exports = {
@@ -15,11 +16,13 @@ module.exports = {
     nav: [
       { text: 'Vue', link: '/vueViews/' },
       { text: 'Vue-Router', link: '/routerViews/' },
+      { text: 'Vuex', link: '/vuexViews/' },
       { text: 'github', link: 'https://github.com/shengrongchun/vue-doc' },// 导航栏配置github
     ],
     sidebar: {
       '/vueViews/': vueSideBar,
       '/routerViews/': routerSideBar,
+      '/vuexViews/': vuexSideBar,
     },
     //displayAllHeaders: true,
     sidebarDepth: 3,
