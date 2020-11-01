@@ -49,6 +49,17 @@ module.exports = [
     ]
   },
   {
+    title: '组件绑定的辅助函数',
+    collapsable: false,
+    children: [
+      ['mapState-vuex', 'mapState'],
+      ['mapGetters-vuex', 'mapGetters'],
+      ['mapActions-vuex', 'mapActions'],
+      ['mapMutations-vuex', 'mapMutations'],
+      ['createNamespacedHelpers-vuex', 'createNamespacedHelpers'],
+    ]
+  },
+  {
     title: '辅助',
     collapsable: false,
     children: [
