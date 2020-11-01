@@ -4,7 +4,7 @@ const vuexSideBar = require('./sidebar/vuex')
 
 //
 module.exports = {
-  title: 'Vue 全家桶源码解析系列',
+  title: 'Vue 全家桶源码解析',
   base: '/vue-doc/',
   dest: 'dist',
   description: '图文并茂解析Vue全家桶',

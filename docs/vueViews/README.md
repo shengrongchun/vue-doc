@@ -1,4 +1,4 @@
-# Vue Parse
-
-`这是一个 VUE 重点知识点原理讲解项目`
-[链接地址](https://shengrongchun.github.io/vue-doc/)
+# Vue
+::: tip 说明
+这是一个 `VUE` 重点知识点原理讲解系列文章。对于我们常用的一些特性，通过 `源码` 与实例的方式来剖析内部的原理
+:::
