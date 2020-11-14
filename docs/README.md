@@ -11,3 +11,6 @@ features:
   details: 深入源码内部，全面解析原理
 footer: MIT Licensed | Copyright © 2020-present ShengRongChun
 ---
+# 主页地址：https://shengrongchun.github.io/vue-doc/
+# 全面解析 vue vuex vue-router 源码
+# 如果觉得写的还可以，记得点 Star 哦
